@@ -10,9 +10,9 @@ class D2DResources
 {
 public:
   D2DResources(HWND window_handle);
+  D2DResources(void) = delete;
   virtual ~D2DResources();
-protected:
-  D2DResources(void) ;
+
 public:
   ID2D1Factory2* GetFactory() ;
   ID2D1DeviceContext1* GetDeviceContext() const;
@@ -22,23 +22,23 @@ public:
   IDXGISwapChain3* GetSwapChain() const;
   HRESULT Reset();
   void Resize();
+  void SetBrush(int id, Microsoft::WRL::ComPtr<ID2D1Brush>  brush);
+  void SetGeometry(int id, Microsoft::WRL::ComPtr<ID2D1Geometry> geometry);
+  void SetTextFormat(int id, Microsoft::WRL::ComPtr<IDWriteTextFormat> text_format);
+
 private:
+  virtual HRESULT CreateMaps() = 0;
   void CleanMaps();
   HRESULT CreateDeviceContext();
   HRESULT CreateRenderTarget();
-private:
-  virtual HRESULT CreateMaps() = 0;
   HRESULT ResetDeviceContext();
   void CleanDeviceContext();
   HRESULT CleanRenderTarget();
-protected:
-  void SetBrushMap( std::map< int, ID2D1Brush* > brush_map ) ;
-  void SetGeometryMap( std::map< int, ID2D1Geometry* > geometry_map ) ;
-  void SetTextFormatMap( std::map< int, IDWriteTextFormat*> new_text_format_map ) ;
+
 private:
-  std::map< int, ID2D1Brush* > brush_map ;
-  std::map< int, ID2D1Geometry* > geometry_map ;
-  std::map< int, IDWriteTextFormat*> text_format_map ;
+  std::map< int, Microsoft::WRL::ComPtr<ID2D1Brush> > brush_map ;
+  std::map< int, Microsoft::WRL::ComPtr<ID2D1Geometry> > geometry_map ;
+  std::map< int, Microsoft::WRL::ComPtr<IDWriteTextFormat>> text_format_map ;
   HWND associated_window_handle ;
   Microsoft::WRL::ComPtr<ID2D1Factory2> m_d2d_factory;
   Microsoft::WRL::ComPtr<ID2D1DeviceContext1> m_d2d_device_context;

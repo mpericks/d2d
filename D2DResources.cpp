@@ -1,15 +1,13 @@
 #include <windows.h>
+#include <algorithm>
 #include <crtdbg.h>
 #include <intsafe.h>
-#include <d2dIncludes.h>
 
-#include "InterfaceMapHelpers.h"
+#include "d2dIncludes.h"
+
 #include "D2DResources.h"
 
-D2DResources::D2DResources(void) : D2DResources((HWND)NULL)
-{
-    _RPTF0(_CRT_ERROR, "Bad D2DResources ctor call. Need to send in an HWND");
-}
+using Microsoft::WRL::ComPtr;
 
 D2DResources::D2DResources(HWND window_handle)
     : associated_window_handle(window_handle)
@@ -51,9 +49,17 @@ ID2D1Factory2* D2DResources::GetFactory()
 }
 void D2DResources::CleanMaps()
 {
-    ClearInterfaceMap(&brush_map);
-    ClearInterfaceMap(&geometry_map);
-    ClearInterfaceMap(&text_format_map);
+    std::for_each(brush_map.begin(), brush_map.end(), [](std::pair<int, ComPtr<ID2D1Brush>> pair) {
+        pair.second.Reset();
+        });
+  
+    std::for_each(geometry_map.begin(), geometry_map.end(), [](std::pair<int, ComPtr<ID2D1Geometry>> pair) {
+        pair.second.Reset();
+        });
+
+    std::for_each(text_format_map.begin(), text_format_map.end(), [](std::pair<int, ComPtr<IDWriteTextFormat>> pair) {
+        pair.second.Reset();
+        });
 }
 HRESULT D2DResources::ResetDeviceContext()
 {
@@ -77,24 +83,133 @@ void D2DResources::CleanDeviceContext()
 }
 HRESULT D2DResources::CleanRenderTarget()
 {
+    m_d2d_bitmap.Reset();   
     if (m_d2d_device_context)
     {
         m_d2d_device_context->SetTarget(nullptr);
     }
-    m_d2d_bitmap.Reset();
+
     return S_OK;
 }
-void D2DResources::SetBrushMap(std::map< int, ID2D1Brush* > brush_map_init)
+
+struct CreateD3D11DeviceReturn
 {
-    brush_map = brush_map_init;
+    HRESULT hr;
+    ComPtr<ID3D11Device> d3d11_base_device;
+    ComPtr<ID3D11DeviceContext> base_device_context;
+    ComPtr<IUnknown> iunknown_device;
+};
+
+CreateD3D11DeviceReturn CreateD3D11Device()
+{
+    CreateD3D11DeviceReturn ret_val;
+
+    UINT creation_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+#if defined(_DEBUG)
+    // If the project is in a debug build, enable the debug layer.
+    creation_flags |= D3D11_CREATE_DEVICE_DEBUG;
+#endif
+
+    // couldn't make a D3D12 device. Try to make an 11
+    D3D_FEATURE_LEVEL feature_levels[]{
+                                D3D_FEATURE_LEVEL_11_1,
+                                D3D_FEATURE_LEVEL_11_0,
+                                D3D_FEATURE_LEVEL_10_1,
+                                D3D_FEATURE_LEVEL_10_0,
+                                D3D_FEATURE_LEVEL_9_3,
+                                D3D_FEATURE_LEVEL_9_2,
+                                D3D_FEATURE_LEVEL_9_1,
+                                };
+
+    ret_val.hr = D3D11CreateDevice(
+                                    0,
+                                    D3D_DRIVER_TYPE_HARDWARE,
+                                    0,
+                                    creation_flags,
+                                    feature_levels,
+                                    ARRAYSIZE(feature_levels),
+                                    D3D11_SDK_VERSION,
+                                    &ret_val.d3d11_base_device,
+                                    0,
+                                    &ret_val.base_device_context
+                                );
+
+    if (FAILED(ret_val.hr))
+    {
+        _RPTF0(_CRT_ERROR, "D3D11CreateDevice failed");
+        return ret_val;
+    }
+    //d3d11_base_device.As(&m_dx_debug);
+    ret_val.d3d11_base_device.As(&ret_val.iunknown_device);
+
+    return ret_val;
 }
-void D2DResources::SetGeometryMap(std::map< int, ID2D1Geometry* > geometry_map_init)
+
+//CreateD3D11DeviceReturn CreateD3D11On12Device()
+//{
+//    CreateD3D11DeviceReturn ret_val;
+//    ComPtr<ID3D12Device> d3d12_base_device;
+//    ret_val.hr = D3D12CreateDevice(
+//                                    0,
+//                                    D3D_FEATURE_LEVEL_11_1,
+//                                    IID_PPV_ARGS(&ret_val.d3d12_base_device)
+//                                    );
+//    if (SUCCEEDED(ret_val.hr))
+//    {
+//        // Describe and create the command queue.
+//        D3D12_COMMAND_QUEUE_DESC queueDesc = {};
+//        queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
+//        queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
+//        hr = d3d12_base_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&m_d3d_command_queue));
+//        if (FAILED(hr))
+//        {
+//            _RPTF0(_CRT_ERROR, "CreateCommandQueue failed");
+//            return hr;
+//        }
+//        m_d3d_command_queue.As(&iunknown_device);
+//    }
+//
+//    if (SUCCEEDED(hr))
+//    {
+//        UINT creation_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
+//#if defined(_DEBUG)
+//        // If the project is in a debug build, enable the debug layer.
+//        creation_flags |= D3D11_CREATE_DEVICE_DEBUG;
+//#endif
+//        ComPtr<IUnknown> iunknown_12_device;
+//        d3d12_base_device.As(&iunknown_12_device);
+//        hr = D3D11On12CreateDevice(
+//                                    iunknown_12_device.Get(),
+//                                    creation_flags,
+//                                    nullptr,
+//                                    0,
+//                                    &iunknown_device,
+//                                    1,
+//                                    0,
+//                                    &d3d11_base_device,
+//                                    &base_device_context,
+//                                    nullptr
+//                                   );
+//        if (FAILED(hr))
+//        {
+//            _RPTF0(_CRT_ERROR, "D3D11On12CreateDevice failed");
+//            return hr;
+//        }
+//    }
+//
+//    return hr;
+//}
+void D2DResources::SetBrush(int id, ComPtr<ID2D1Brush> brush)
 {
-    geometry_map = geometry_map_init;
+    brush_map[id] = brush;
 }
-void D2DResources::SetTextFormatMap(std::map< int, IDWriteTextFormat*> new_text_format_map)
+void D2DResources::SetGeometry(int id, ComPtr<ID2D1Geometry> geometry)
 {
-    text_format_map = new_text_format_map;
+    geometry_map[id] = geometry;
+}
+void D2DResources::SetTextFormat(int id, ComPtr<IDWriteTextFormat> text_format)
+{
+    text_format_map[id] = text_format;
 }
 
 ID2D1DeviceContext1* D2DResources::GetDeviceContext() const
@@ -103,30 +218,33 @@ ID2D1DeviceContext1* D2DResources::GetDeviceContext() const
 }
 ID2D1Brush* D2DResources::GetBrush(const int brush_id) const
 {
-    ID2D1Brush* brush_ptr = brush_map.find(brush_id)->second;
+    ComPtr<ID2D1Brush> brush_ptr = brush_map.find(brush_id)->second;
     if (NULL == brush_ptr)
     {
+        _RPT1(_CRT_ERROR, "brush %d doesn't exist", brush_id);
         throw std::exception("Can't find brush ");
     }
-    return  brush_ptr;
+    return  brush_ptr.Get();
 }
 ID2D1Geometry* D2DResources::GetGeometry(const int geometry_id) const
 {
-    ID2D1Geometry* geometry_ptr = geometry_map.find(geometry_id)->second;
+    ComPtr<ID2D1Geometry> geometry_ptr = geometry_map.find(geometry_id)->second;
     if (NULL == geometry_ptr)
     {
+        _RPT1(_CRT_ERROR, "geometry %d doesn't exist", geometry_id);
         throw std::exception("Can't find geometry ");
     }
-    return geometry_ptr;
+    return geometry_ptr.Get();
 }
 IDWriteTextFormat* D2DResources::GetTextFormat(const int format_id) const
 {
-    IDWriteTextFormat* format_ptr = text_format_map.find(format_id)->second;
+    ComPtr<IDWriteTextFormat> format_ptr = text_format_map.find(format_id)->second;
     if (NULL == format_ptr)
     {
+        _RPT1(_CRT_ERROR, "text format %d doesn't exist", format_id);
         throw std::exception("Can't find text format ");
     }
-    return format_ptr;
+    return format_ptr.Get();
 }
 IDXGISwapChain3* D2DResources::GetSwapChain() const
 {
@@ -140,99 +258,17 @@ HRESULT D2DResources::CreateDeviceContext()
     UINT d3d11DeviceFlags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
     D2D1_FACTORY_OPTIONS d2dFactoryOptions = {};
 
-    //ID3D12Device* d3d12_base_device = nullptr;
-    //IUnknown* unknown_swap_chain_device = nullptr;
-
-    Microsoft::WRL::ComPtr<IDXGIFactory4> dxgi_factory;
+    ComPtr<IDXGIFactory4> dxgi_factory;
     CreateDXGIFactory2(dxgiFactoryFlags, IID_PPV_ARGS(&dxgi_factory));
 
-    Microsoft::WRL::ComPtr<ID3D11DeviceContext> base_device_context;
-    Microsoft::WRL::ComPtr<ID3D11Device> d3d11_base_device;
-    Microsoft::WRL::ComPtr<IUnknown> iunknown_device;
+    CreateD3D11DeviceReturn create_result = CreateD3D11Device();
 
-    //hr = D3D12CreateDevice(
-    //                        0,
-    //                        D3D_FEATURE_LEVEL_11_1,
-    //                        IID_PPV_ARGS(&d3d12_base_device)
-    //                        );
-    //if (FAILED(hr))
-    //{
-        UINT creation_flags = D3D11_CREATE_DEVICE_BGRA_SUPPORT;
-#if defined(_DEBUG)
-        // If the project is in a debug build, enable the debug layer.
-        creation_flags |= D3D11_CREATE_DEVICE_DEBUG;
-#endif
-
-        // couldn't make a D3D12 device. Try to make an 11
-        D3D_FEATURE_LEVEL feature_levels[]{
-                                    D3D_FEATURE_LEVEL_11_1,
-                                    D3D_FEATURE_LEVEL_11_0,
-                                    D3D_FEATURE_LEVEL_10_1,
-                                    D3D_FEATURE_LEVEL_10_0,
-                                    D3D_FEATURE_LEVEL_9_3,
-                                    D3D_FEATURE_LEVEL_9_2,
-                                    D3D_FEATURE_LEVEL_9_1,
-        };
-
-        hr = D3D11CreateDevice(
-                                0,
-                                D3D_DRIVER_TYPE_HARDWARE,
-                                0,
-                                creation_flags,
-                                feature_levels,
-                                ARRAYSIZE(feature_levels),
-                                D3D11_SDK_VERSION,
-                                &d3d11_base_device,
-                                0,
-                                &base_device_context
-                               );
-        if (FAILED(hr))
-        {
-            _RPTF0(_CRT_ERROR, "D3D11CreateDevice failed");
-            return hr;
-        }
-        //d3d11_base_device.As(&debug_ptr);
-        d3d11_base_device.As(&iunknown_device);
-    //}
-    //else
-    //{
-    //    // Describe and create the command queue.
-    //    D3D12_COMMAND_QUEUE_DESC queueDesc = {};
-    //    queueDesc.Flags = D3D12_COMMAND_QUEUE_FLAG_NONE;
-    //    queueDesc.Type = D3D12_COMMAND_LIST_TYPE_DIRECT;
-    //    ID3D12CommandQueue* command_queue = nullptr;
-    //    hr = d3d12_base_device->CreateCommandQueue(&queueDesc, IID_PPV_ARGS(&command_queue));
-    //    if (FAILED(hr))
-    //    {
-    //        _RPTF0(_CRT_ERROR, "CreateCommandQueue failed");
-    //        return hr;
-    //    }
-    //    unknown_swap_chain_device = command_queue;
-    //    mp_d3d_command_queue = UniqueComPtr(command_queue);
-    //}
-
-    /*if (nullptr == d3d11_base_device)
+    if (FAILED(create_result.hr))
     {
-        hr = D3D11On12CreateDevice(
-            d3d12_base_device,
-            d3d11DeviceFlags,
-            nullptr,
-            0,
-            reinterpret_cast<IUnknown**>(&mp_d3d_command_queue),
-            1,
-            0,
-            &d3d11_base_device,
-            &base_device_context,
-            nullptr
-        );
-        if (FAILED(hr))
-        {
-            _RPTF0(_CRT_ERROR, "D3D11On12CreateDevice failed");
-            return hr;
-        }
-    }*/
+        return create_result.hr;
+    }
 
-    hr = base_device_context.As(&m_d3d11_device_context);
+    hr = create_result.base_device_context.As(&m_d3d11_device_context);
     if (FAILED(hr))
     {
         return hr;
@@ -248,9 +284,9 @@ HRESULT D2DResources::CreateDeviceContext()
     swapChainDesc.SwapEffect = DXGI_SWAP_EFFECT_FLIP_SEQUENTIAL;
     swapChainDesc.SampleDesc.Count = 1;
 
-    Microsoft::WRL::ComPtr<IDXGISwapChain1> swap_chain1;
+    ComPtr<IDXGISwapChain1> swap_chain1;
     hr = dxgi_factory->CreateSwapChainForHwnd(
-                                                iunknown_device.Get(),
+                                                create_result.iunknown_device.Get(),
                                                 associated_window_handle,
                                                 &swapChainDesc,
                                                 nullptr,
@@ -265,12 +301,10 @@ HRESULT D2DResources::CreateDeviceContext()
 
     swap_chain1.As(&m_dxgi_swap_chain);
 
-    //hr = dxgi_factory->MakeWindowAssociation(associated_window_handle, DXGI_MWA_NO_ALT_ENTER);
+    ComPtr<IDXGIDevice> dxgi_device;
+    create_result.d3d11_base_device.As(&dxgi_device);
 
-    Microsoft::WRL::ComPtr<IDXGIDevice> dxgi_device;
-    d3d11_base_device.As(&dxgi_device);
-
-    Microsoft::WRL::ComPtr<ID2D1Device1> d2d1_device;
+    ComPtr<ID2D1Device1> d2d1_device;
     hr = m_d2d_factory->CreateDevice(dxgi_device.Get(), &d2d1_device);
     if (FAILED(hr))
     {
@@ -282,9 +316,10 @@ HRESULT D2DResources::CreateDeviceContext()
     hr = d2d1_device->CreateDeviceContext(D2D1_DEVICE_CONTEXT_OPTIONS_NONE, &m_d2d_device_context);
     if (FAILED(hr))
     {
-        _RPTF0(_CRT_ERROR, "CreateDeviceCOntext on the D2D device failed");
+        _RPTF0(_CRT_ERROR, "CreateDeviceContext on the D2D device failed");
         return hr;
     }
+    d2d1_device.Reset();
 
     hr = CreateRenderTarget();
 
@@ -328,6 +363,7 @@ HRESULT D2DResources::CreateRenderTarget()
         return hr;
     }
     m_d2d_device_context->SetTarget(m_d2d_bitmap.Get());
+    dxgi_surface.Reset();
 
     return hr;
 }

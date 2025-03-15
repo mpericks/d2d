@@ -12,9 +12,10 @@ struct IUIAnimationTransitionLibrary;
 
 struct RenderedNode
 {
+	virtual ~RenderedNode() = default;
 	virtual bool IsAnimating() const = 0;
 	virtual HRESULT Render(D2DResources* d2d_objects_ptr, IUIAnimationManager* animation_mgr_ptr) = 0;
-	//virtual void AcceptControllerVisitor(ControllerVisitor* controller_ptr) = 0;
+	virtual void WindowDidResize(D2DResources* d2d_objects_ptr, const struct D2D_SIZE_F& new_size) = 0;
 };
 
 class RenderedNodeBaseImpl : public RenderedNode

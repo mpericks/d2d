@@ -108,11 +108,6 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
         return false;
     }
 
-    //if (device_context->CheckWindowState() & D2D1_WINDOW_STATE_OCCLUDED)
-    //{
-    //    return S_FALSE;
-    //}
-
     UI_ANIMATION_SECONDS seconds_now;
     HRESULT hr = animation_timer_ptr->GetTime(&seconds_now);
 
@@ -156,6 +151,18 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
     }
     
     return false;
+}
+
+void RenderController::WindowDidResize(ID2DModel* model_ptr)
+{
+    std::vector<RenderedNode*> nodes = model_ptr->GetRenderedNodes();
+    RECT rect{};
+    GetClientRect(window_handle, &rect);
+
+    D2D_SIZE_F size{ (float)(rect.right), (float)(rect.bottom) };
+    std::for_each(nodes.begin(), nodes.end(), [model_ptr, &size](RenderedNode* node) {
+        node->WindowDidResize(model_ptr->GetD2dResources(), size);
+    });
 }
 
 void RenderController::WindowPaintReceived(ID2DModel* model_ptr, GuiHelpers::MessageLoop* msg_loop)

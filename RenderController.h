@@ -19,6 +19,7 @@ public:
   bool Animating() ;
   void RenderIsStale();
   bool RenderNodes( const std::vector< RenderedNode* >& nodes, D2DResources* object_map );
+  void WindowDidResize(ID2DModel* model_ptr);
   void WindowPaintReceived(ID2DModel* model_ptr, GuiHelpers::MessageLoop* msg_loop);
   void SetWindow( HWND window_handle ) ;
   IFACEMETHODIMP OnManagerStatusChanged(
