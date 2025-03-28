@@ -4,13 +4,14 @@
 #include <map>
 #include <algorithm>
 #include <memory>
+
 #include "interfacemaphelpers.h"
 #include "D2dIncludes.h"
 #include "D2DResources.h"
 #include "D2DNodes.h"
+#include "D2DModel.h"
 
 #include "RenderController.h"
-#include <D2DModel.h>
 
 RenderController::RenderController(HWND window_handle_in)
     : window_handle(window_handle_in)
