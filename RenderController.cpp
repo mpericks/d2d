@@ -50,6 +50,10 @@ void RenderController::SetWindow(HWND window_handle_in)
 {
     window_handle = window_handle_in;
 }
+IUIAnimationManager* RenderController::GetAnimationManager()
+{
+    return animation_mgr_ptr;
+}
 IFACEMETHODIMP RenderController::QueryInterface(REFIID riid, void** ppvObject)
 {
     if (ppvObject == NULL)
@@ -154,16 +158,15 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
     return false;
 }
 
-void RenderController::WindowDidResize(ID2DModel* model_ptr)
+void RenderController::WindowDidResize(ID2DModel* model_ptr, float x, float y)
 {
     std::vector<RenderedNode*> nodes = model_ptr->GetRenderedNodes();
-    RECT rect{};
-    GetClientRect(window_handle, &rect);
 
-    D2D_SIZE_F size{ (float)(rect.right), (float)(rect.bottom) };
-    std::for_each(nodes.begin(), nodes.end(), [model_ptr, &size](RenderedNode* node) {
+    D2D_SIZE_F size{ (float)(x), (float)(y) };
+    for (RenderedNode* node : nodes)
+    {
         node->WindowDidResize(model_ptr->GetD2dResources(), size);
-    });
+    }
 }
 
 void RenderController::WindowPaintReceived(ID2DModel* model_ptr, GuiHelpers::MessageLoop* msg_loop)
