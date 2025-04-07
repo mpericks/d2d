@@ -10,3 +10,11 @@
 #include <d2d1_3helper.h>
 #include <dwrite.h>
 #include <wincodec.h>
+#include <cmath>
+#include <numbers>
+
+namespace Neato
+{
+    constexpr float rads_to_degrees_factor = (float)(180.0 / std::numbers::pi);
+    constexpr float degrees_to_rads_factor = (float)(std::numbers::pi / 180.0);
+}

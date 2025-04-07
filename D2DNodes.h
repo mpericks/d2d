@@ -5,10 +5,10 @@
 #include <vector>
 
 class D2DResources;
-struct ControllerVisitor;
 struct IUIAnimationManager;
 struct IUIAnimationTimer;
 struct IUIAnimationTransitionLibrary;
+struct ID2D1Geometry;
 
 struct RenderedNode
 {
