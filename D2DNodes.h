@@ -36,5 +36,3 @@ private:
 	std::bitset<128> state_bits;
 	std::vector< UI_ANIMATION_SECONDS > state_change_times;
 };
-
-//std::vector< RenderedNode* > CreateRenderedNodes();
