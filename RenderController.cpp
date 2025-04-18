@@ -84,11 +84,15 @@ IFACEMETHODIMP RenderController::OnManagerStatusChanged(__in UI_ANIMATION_MANAGE
     animating = false;
     if (UI_ANIMATION_MANAGER_BUSY == new_status)
     {
-        animating = true;
         if (::IsWindow(window_handle))
         {
+            animating = true;
             ::InvalidateRect(window_handle, NULL, FALSE);
         }
+    }
+    else
+    {
+        ::ValidateRect(window_handle, nullptr);
     }
     return S_OK;
 }
@@ -171,20 +175,24 @@ void RenderController::WindowDidResize(ID2DModel* model_ptr, float x, float y)
 
 void RenderController::WindowPaintReceived(ID2DModel* model_ptr, GuiHelpers::MessageLoop* msg_loop)
 {
-    //necessary before we call the run loop, otherwise we get another paint
-    //and we recurse to death
-    ::ValidateRect(window_handle, NULL);
-    do
+    if(!in_render_loop)
     {
-        in_render_loop = true;
-        bool recreate_target = RenderNodes(model_ptr->GetRenderedNodes(), model_ptr->GetD2dResources());
-        if (recreate_target)
+        do
         {
-            model_ptr->GetD2dResources()->Reset();
-        }
-        msg_loop->RunLocalLoopUntilEmpty();
-    } while (Animating() && ::IsWindow(window_handle));
-    in_render_loop = false;
+            in_render_loop = true;
+            bool recreate_target = RenderNodes(model_ptr->GetRenderedNodes(), model_ptr->GetD2dResources());
+            if (recreate_target)
+            {
+                model_ptr->GetD2dResources()->Reset();
+            }
+            //necessary before we call the run loop, otherwise we get another paint
+            //and we recurse to death
+            ::ValidateRect(window_handle, NULL);
+            msg_loop->RunLocalLoopUntilEmpty();
+        } while (Animating() && ::IsWindow(window_handle));
+
+        in_render_loop = false;
+    }
 }
 
 void RenderController::RenderIsStale()
