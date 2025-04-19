@@ -1,8 +1,16 @@
 #pragma once
 #include <vector>
+#include <UIAnimation.h>
 #include "D2DResources.h"
-#include "D2DNodes.h"
+#include "RenderedNode.h"
 #include "CollisionObjects.h"
+
+struct UIAnimationInterfaces
+{
+    IUIAnimationManager* animation_mgr;
+    IUIAnimationTimer* animation_timer;
+    IUIAnimationTransitionLibrary* animation_transition_library;
+};
 
 struct ID2DModel
 {
@@ -15,4 +23,6 @@ struct ID2DModel
     virtual void CullCollisionNodes() = 0;
     virtual void AddCollider(Neato::ICollidable* collider) = 0;
     virtual void RemoveCollider(Neato::ICollidable* remove_me) = 0;
+    virtual UIAnimationInterfaces GetAnimationInterfaces() = 0;
+    virtual HWND GetMainHWND() = 0;
 };

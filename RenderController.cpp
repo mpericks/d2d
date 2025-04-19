@@ -8,103 +8,26 @@
 #include "interfacemaphelpers.h"
 #include "D2dIncludes.h"
 #include "D2DResources.h"
-#include "D2DNodes.h"
+#include "RenderedNode.h"
 #include "D2DModel.h"
+#include "ToobHelpers.h"
 
 #include "RenderController.h"
 
-RenderController::RenderController(HWND window_handle_in)
-    : window_handle(window_handle_in)
-    , animating(false)
-    , in_render_loop(false)
-    , animation_mgr_ptr(NULL)
-    , animation_timer_ptr(NULL)
+RenderController::RenderController(ID2DModel* model_in)
+    : m_model(model_in)
 {
-    HRESULT hr = CoCreateInstance(
-        CLSID_UIAnimationManager,
-        NULL,
-        CLSCTX_INPROC_SERVER,
-        IID_PPV_ARGS(&animation_mgr_ptr)
-    );
-    if (SUCCEEDED(hr))
-    {
-        // Create Animation Timer
-
-        hr = CoCreateInstance(
-            CLSID_UIAnimationTimer,
-            NULL,
-            CLSCTX_INPROC_SERVER,
-            IID_PPV_ARGS(&animation_timer_ptr)
-        );
-        animation_mgr_ptr->SetManagerEventHandler(this);
-    }
-
 }
 
 RenderController::~RenderController(void)
 {
-    ReleaseInterface(animation_mgr_ptr);
-    ReleaseInterface(animation_timer_ptr);
-}
-void RenderController::SetWindow(HWND window_handle_in)
-{
-    window_handle = window_handle_in;
-}
-IUIAnimationManager* RenderController::GetAnimationManager()
-{
-    return animation_mgr_ptr;
-}
-IFACEMETHODIMP RenderController::QueryInterface(REFIID riid, void** ppvObject)
-{
-    if (ppvObject == NULL)
-    {
-        return E_POINTER;
-    }
 
-    *ppvObject = NULL;
-    if (::IsEqualGUID(riid, IID_IUnknown) || ::IsEqualGUID(riid, IID_IUIAnimationManagerEventHandler))
-    {
-        *ppvObject = static_cast<IUIAnimationManagerEventHandler*>(this);
-        return S_OK;
-    }
+}
 
-    return E_NOINTERFACE;
-}
-IFACEMETHODIMP_(ULONG) RenderController::AddRef()
+bool RenderController::RenderNodes()
 {
-    return 1;
-}
-IFACEMETHODIMP_(ULONG) RenderController::Release()
-{
-    return 1;
-}
-IFACEMETHODIMP RenderController::OnManagerStatusChanged(__in UI_ANIMATION_MANAGER_STATUS new_status,
-    __in UI_ANIMATION_MANAGER_STATUS previous_status)
-{
-    animating = false;
-    if (UI_ANIMATION_MANAGER_BUSY == new_status)
-    {
-        if (::IsWindow(window_handle))
-        {
-            animating = true;
-            ::InvalidateRect(window_handle, NULL, FALSE);
-        }
-    }
-    else
-    {
-        ::ValidateRect(window_handle, nullptr);
-    }
-    return S_OK;
-}
-bool RenderController::Animating()
-{
-    //UI_ANIMATION_MANAGER_STATUS status ;
-    //animation_mgr_ptr->GetStatus( &status ) ;
-    //return  status == UI_ANIMATION_MANAGER_BUSY ? true : false ;
-    return animating;
-}
-bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2DResources* d2d_objects_ptr)
-{
+    D2DResources* d2d_objects_ptr = m_model->GetD2dResources();
+
     if (NULL == d2d_objects_ptr)
     {
         return false;
@@ -117,15 +40,17 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
         return false;
     }
 
+    UIAnimationInterfaces anime_interfaces = m_model->GetAnimationInterfaces();
+
     UI_ANIMATION_SECONDS seconds_now;
-    HRESULT hr = animation_timer_ptr->GetTime(&seconds_now);
+    HRESULT hr = anime_interfaces.animation_timer->GetTime(&seconds_now);
 
     if (FAILED(hr))
     {
         return false;
     }
 
-    hr = animation_mgr_ptr->Update(seconds_now);
+    hr = anime_interfaces.animation_mgr->Update(seconds_now);
     if (FAILED(hr))
     {
         return false;
@@ -135,9 +60,9 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
     device_context->SetTransform(D2D1::Matrix3x2F::Identity());
     device_context->Clear(D2D1::ColorF(D2D1::ColorF::White));
 
-    for (UINT i = 0; i < nodes.size(); i++)
+    for (RenderedNode* node : m_model->GetRenderedNodes())
     {
-        nodes[i]->Render(d2d_objects_ptr, animation_mgr_ptr);
+        node->Render();
     }
 
     hr = device_context->EndDraw();
@@ -162,43 +87,29 @@ bool RenderController::RenderNodes(const std::vector< RenderedNode* >& nodes, D2
     return false;
 }
 
-void RenderController::WindowDidResize(ID2DModel* model_ptr, float x, float y)
+void RenderController::WindowDidResize()
 {
-    std::vector<RenderedNode*> nodes = model_ptr->GetRenderedNodes();
+    std::vector<RenderedNode*> nodes = m_model->GetRenderedNodes();
 
-    D2D_SIZE_F size{ (float)(x), (float)(y) };
+    D2D_SIZE_F size = Toob::WindowSize(m_model->GetMainHWND());
     for (RenderedNode* node : nodes)
     {
-        node->WindowDidResize(model_ptr->GetD2dResources(), size);
+        node->WindowDidResize(size);
     }
 }
 
-void RenderController::WindowPaintReceived(ID2DModel* model_ptr, GuiHelpers::MessageLoop* msg_loop)
+void RenderController::UpdateNodes()
 {
-    if(!in_render_loop)
+    UIAnimationInterfaces anime_interfaces = m_model->GetAnimationInterfaces();
+    UI_ANIMATION_SECONDS time_now;
+    HRESULT hr = anime_interfaces.animation_timer->GetTime(&time_now);
+    UI_ANIMATION_UPDATE_RESULT result;
+    anime_interfaces.animation_mgr->Update(time_now, &result);
+    if (UI_ANIMATION_UPDATE_RESULT::UI_ANIMATION_UPDATE_VARIABLES_CHANGED == result)
     {
-        do
+        for (RenderedNode* node : m_model->GetRenderedNodes())
         {
-            in_render_loop = true;
-            bool recreate_target = RenderNodes(model_ptr->GetRenderedNodes(), model_ptr->GetD2dResources());
-            if (recreate_target)
-            {
-                model_ptr->GetD2dResources()->Reset();
-            }
-            //necessary before we call the run loop, otherwise we get another paint
-            //and we recurse to death
-            ::ValidateRect(window_handle, NULL);
-            msg_loop->RunLocalLoopUntilEmpty();
-        } while (Animating() && ::IsWindow(window_handle));
-
-        in_render_loop = false;
-    }
-}
-
-void RenderController::RenderIsStale()
-{
-    if (!in_render_loop)
-    {
-        ::InvalidateRect(window_handle, NULL, FALSE);
+            node->Update();
+        }
     }
 }
