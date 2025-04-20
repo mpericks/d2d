@@ -8,11 +8,9 @@ public:
     RenderController(ID2DModel* model_in);
     ~RenderController(void);
 public:
-    void UpdateNodes();
+    void UpdateNodes(bool force_all = false);
     bool RenderNodes();
-    void WindowDidResize();
+    void WindowDidResize(D2D_SIZE_F new_size);
 private:
     ID2DModel* m_model;
-    bool animating;
-    bool in_render_loop;
 };

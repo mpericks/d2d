@@ -28,33 +28,7 @@ bool RenderController::RenderNodes()
 {
     D2DResources* d2d_objects_ptr = m_model->GetD2dResources();
 
-    if (NULL == d2d_objects_ptr)
-    {
-        return false;
-    }
-
     ID2D1DeviceContext1* device_context = d2d_objects_ptr->GetDeviceContext();
-
-    if (!device_context)
-    {
-        return false;
-    }
-
-    UIAnimationInterfaces anime_interfaces = m_model->GetAnimationInterfaces();
-
-    UI_ANIMATION_SECONDS seconds_now;
-    HRESULT hr = anime_interfaces.animation_timer->GetTime(&seconds_now);
-
-    if (FAILED(hr))
-    {
-        return false;
-    }
-
-    hr = anime_interfaces.animation_mgr->Update(seconds_now);
-    if (FAILED(hr))
-    {
-        return false;
-    }
 
     device_context->BeginDraw();
     device_context->SetTransform(D2D1::Matrix3x2F::Identity());
@@ -65,7 +39,7 @@ bool RenderController::RenderNodes()
         node->Render();
     }
 
-    hr = device_context->EndDraw();
+    HRESULT hr = device_context->EndDraw();
     if (D2DERR_RECREATE_TARGET == hr)
     {
         return true;
@@ -87,29 +61,30 @@ bool RenderController::RenderNodes()
     return false;
 }
 
-void RenderController::WindowDidResize()
+void RenderController::WindowDidResize(D2D_SIZE_F size)
 {
     std::vector<RenderedNode*> nodes = m_model->GetRenderedNodes();
 
-    D2D_SIZE_F size = Toob::WindowSize(m_model->GetMainHWND());
     for (RenderedNode* node : nodes)
     {
         node->WindowDidResize(size);
     }
 }
 
-void RenderController::UpdateNodes()
+void RenderController::UpdateNodes(bool force_all)
 {
     UIAnimationInterfaces anime_interfaces = m_model->GetAnimationInterfaces();
     UI_ANIMATION_SECONDS time_now;
     HRESULT hr = anime_interfaces.animation_timer->GetTime(&time_now);
     UI_ANIMATION_UPDATE_RESULT result;
-    anime_interfaces.animation_mgr->Update(time_now, &result);
-    if (UI_ANIMATION_UPDATE_RESULT::UI_ANIMATION_UPDATE_VARIABLES_CHANGED == result)
+    hr = anime_interfaces.animation_mgr->Update(time_now, &result);
+    if (UI_ANIMATION_UPDATE_RESULT::UI_ANIMATION_UPDATE_VARIABLES_CHANGED == result
+        || force_all)
     {
         for (RenderedNode* node : m_model->GetRenderedNodes())
         {
             node->Update();
         }
     }
+
 }
