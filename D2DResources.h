@@ -21,7 +21,7 @@ public:
   IDWriteTextFormat* GetTextFormat( const int format_id ) const ;
   IDXGISwapChain3* GetSwapChain() const;
   HRESULT Reset();
-  void Resize();
+  void Resize(D2D_SIZE_F size);
   void SetBrush(int id, Microsoft::WRL::ComPtr<ID2D1Brush>  brush);
   void SetGeometry(int id, Microsoft::WRL::ComPtr<ID2D1Geometry> geometry);
   void SetTextFormat(int id, Microsoft::WRL::ComPtr<IDWriteTextFormat> text_format);

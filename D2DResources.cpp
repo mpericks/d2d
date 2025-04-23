@@ -378,7 +378,7 @@ HRESULT D2DResources::Reset()
     return hr;
 }
 
-void D2DResources::Resize()
+void D2DResources::Resize(D2D_SIZE_F size)
 {
     if (m_d3d11_device_context)
     {
