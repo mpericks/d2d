@@ -32,7 +32,7 @@ bool RenderController::RenderNodes()
 
     device_context->BeginDraw();
     device_context->SetTransform(D2D1::Matrix3x2F::Identity());
-    device_context->Clear(D2D1::ColorF(D2D1::ColorF::White));
+    device_context->Clear(m_model->GetBackgroundColor());
 
     for (RenderedNode* node : m_model->GetRenderedNodes())
     {

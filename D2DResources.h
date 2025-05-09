@@ -6,6 +6,11 @@
 #include <d2dIncludes.h>
 #include <wrl/client.h>
 
+namespace Neato
+{
+    constexpr int BACKGROUND_BRUSH = 0;
+}
+
 class D2DResources 
 {
 public:
@@ -48,5 +53,3 @@ private:
   Microsoft::WRL::ComPtr<ID3D11DeviceContext1> m_d3d11_device_context;
   Microsoft::WRL::ComPtr<ID3D11Debug> m_dx_debug;
 };
-
-D2DResources* CreateDirect2dResources( HWND window_handle ) ;
