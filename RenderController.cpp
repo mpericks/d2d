@@ -61,13 +61,14 @@ bool RenderController::RenderNodes()
     return false;
 }
 
-void RenderController::WindowDidResize(D2D_SIZE_F size)
+void RenderController::WindowDidResize(D2D_SIZE_F new_size)
 {
+    m_model->GetD2dResources()->Resize(new_size);
     std::vector<RenderedNode*> nodes = m_model->GetRenderedNodes();
 
     for (RenderedNode* node : nodes)
     {
-        node->WindowDidResize(size);
+        node->WindowDidResize(new_size);
     }
 }
 
