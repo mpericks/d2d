@@ -24,7 +24,7 @@ RenderController::~RenderController(void)
 
 }
 
-bool RenderController::RenderNodes()
+bool RenderController::RenderNodes(std::vector<RenderedNode*>& nodes)
 {
     D2DResources* d2d_objects_ptr = m_model->GetD2dResources();
 
@@ -34,7 +34,7 @@ bool RenderController::RenderNodes()
     device_context->SetTransform(D2D1::Matrix3x2F::Identity());
     device_context->Clear(m_model->GetBackgroundColor());
 
-    for (RenderedNode* node : m_model->GetRenderedNodes())
+    for (RenderedNode* node : nodes)
     {
         node->Render();
     }
@@ -61,10 +61,9 @@ bool RenderController::RenderNodes()
     return false;
 }
 
-void RenderController::WindowDidResize(D2D_SIZE_F new_size)
+void RenderController::WindowDidResize(D2D_SIZE_F new_size, std::vector<RenderedNode*>& nodes)
 {
     m_model->GetD2dResources()->Resize(new_size);
-    std::vector<RenderedNode*> nodes = m_model->GetRenderedNodes();
 
     for (RenderedNode* node : nodes)
     {
@@ -72,7 +71,7 @@ void RenderController::WindowDidResize(D2D_SIZE_F new_size)
     }
 }
 
-void RenderController::UpdateNodes(bool force_all)
+void RenderController::UpdateNodes(std::vector<RenderedNode*>& nodes, bool force_all)
 {
     UIAnimationInterfaces anime_interfaces = m_model->GetAnimationInterfaces();
     UI_ANIMATION_SECONDS time_now;
@@ -82,7 +81,7 @@ void RenderController::UpdateNodes(bool force_all)
     if (UI_ANIMATION_UPDATE_RESULT::UI_ANIMATION_UPDATE_VARIABLES_CHANGED == result
         || force_all)
     {
-        for (RenderedNode* node : m_model->GetRenderedNodes())
+        for (RenderedNode* node : nodes)
         {
             node->Update();
         }
